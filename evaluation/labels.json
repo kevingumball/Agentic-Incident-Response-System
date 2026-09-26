@@ -1,0 +1,515 @@
+{
+  "case_001": {
+    "root_cause": "bad_config_deploy",
+    "split": "dev",
+    "variant": "config-timeout",
+    "red_herrings": [
+      "noisy_warn"
+    ],
+    "key_evidence": [
+      {
+        "any_of": [
+          [
+            "get_service_config",
+            "checkout"
+          ]
+        ]
+      }
+    ]
+  },
+  "case_002": {
+    "root_cause": "expired_credential",
+    "split": "dev",
+    "variant": "cred-payment",
+    "red_herrings": [
+      "gc_warn"
+    ],
+    "key_evidence": [
+      {
+        "any_of": [
+          [
+            "search_logs",
+            "payment"
+          ],
+          [
+            "get_service_config",
+            "payment"
+          ],
+          [
+            "get_trace",
+            "payment"
+          ]
+        ]
+      }
+    ]
+  },
+  "case_003": {
+    "root_cause": "memory_leak",
+    "split": "dev",
+    "variant": "leak-checkout",
+    "red_herrings": [
+      "redis_evictions"
+    ],
+    "key_evidence": [
+      {
+        "any_of": [
+          [
+            "get_service_metrics",
+            "checkout"
+          ],
+          [
+            "search_logs",
+            "checkout"
+          ]
+        ]
+      }
+    ]
+  },
+  "case_004": {
+    "root_cause": "bad_config_deploy",
+    "split": "eval",
+    "variant": "config-upstream",
+    "red_herrings": [
+      "cache_miss"
+    ],
+    "key_evidence": [
+      {
+        "any_of": [
+          [
+            "get_service_config",
+            "api-gateway"
+          ]
+        ]
+      }
+    ]
+  },
+  "case_005": {
+    "root_cause": "missing_env_var",
+    "split": "eval",
+    "variant": "envvar-checkout",
+    "red_herrings": [
+      "cache_miss",
+      "unrelated_deploy"
+    ],
+    "key_evidence": [
+      {
+        "any_of": [
+          [
+            "search_logs",
+            "checkout"
+          ],
+          [
+            "get_service_config",
+            "checkout"
+          ],
+          [
+            "get_trace",
+            "checkout"
+          ]
+        ]
+      }
+    ]
+  },
+  "case_006": {
+    "root_cause": "missing_env_var",
+    "split": "dev",
+    "variant": "envvar-payment",
+    "red_herrings": [
+      "noisy_warn"
+    ],
+    "key_evidence": [
+      {
+        "any_of": [
+          [
+            "search_logs",
+            "payment"
+          ],
+          [
+            "get_service_config",
+            "payment"
+          ],
+          [
+            "get_trace",
+            "payment"
+          ]
+        ]
+      }
+    ]
+  },
+  "case_007": {
+    "root_cause": "bad_config_deploy",
+    "split": "eval",
+    "variant": "config-ratelimit",
+    "red_herrings": [
+      "redis_evictions",
+      "unrelated_deploy"
+    ],
+    "key_evidence": [
+      {
+        "any_of": [
+          [
+            "get_service_config",
+            "api-gateway"
+          ]
+        ]
+      }
+    ]
+  },
+  "case_008": {
+    "root_cause": "slow_db_query",
+    "split": "dev",
+    "variant": "slowq-checkout",
+    "red_herrings": [
+      "gc_warn"
+    ],
+    "key_evidence": [
+      {
+        "any_of": [
+          [
+            "get_trace",
+            "checkout"
+          ],
+          [
+            "get_service_metrics",
+            "orders-db"
+          ],
+          [
+            "search_logs",
+            "orders-db"
+          ]
+        ]
+      }
+    ]
+  },
+  "case_009": {
+    "root_cause": "cpu_hot_loop",
+    "split": "eval",
+    "variant": "cpu-gateway",
+    "red_herrings": [
+      "redis_evictions",
+      "unrelated_deploy"
+    ],
+    "key_evidence": [
+      {
+        "any_of": [
+          [
+            "get_service_metrics",
+            "api-gateway"
+          ]
+        ]
+      },
+      {
+        "any_of": [
+          [
+            "get_trace",
+            "api-gateway"
+          ],
+          [
+            "search_logs",
+            "api-gateway"
+          ]
+        ]
+      }
+    ]
+  },
+  "case_010": {
+    "root_cause": "db_pool_exhaustion",
+    "split": "dev",
+    "variant": "pool-checkout-traffic",
+    "red_herrings": [],
+    "key_evidence": [
+      {
+        "any_of": [
+          [
+            "get_service_metrics",
+            "checkout"
+          ],
+          [
+            "search_logs",
+            "checkout"
+          ]
+        ]
+      },
+      {
+        "any_of": [
+          [
+            "get_trace",
+            "checkout"
+          ],
+          [
+            "get_service_metrics",
+            "orders-db"
+          ]
+        ]
+      }
+    ]
+  },
+  "case_011": {
+    "root_cause": "dependency_unavailable",
+    "split": "eval",
+    "variant": "dep-inventory",
+    "red_herrings": [
+      "noisy_warn",
+      "redis_evictions"
+    ],
+    "key_evidence": [
+      {
+        "any_of": [
+          [
+            "get_service_metrics",
+            "inventory"
+          ],
+          [
+            "search_logs",
+            "inventory"
+          ]
+        ]
+      }
+    ]
+  },
+  "case_012": {
+    "root_cause": "slow_db_query",
+    "split": "eval",
+    "variant": "slowq-checkout-confounded",
+    "red_herrings": [
+      "cache_miss"
+    ],
+    "key_evidence": [
+      {
+        "any_of": [
+          [
+            "get_trace",
+            "checkout"
+          ],
+          [
+            "get_service_metrics",
+            "orders-db"
+          ],
+          [
+            "search_logs",
+            "orders-db"
+          ]
+        ]
+      }
+    ]
+  },
+  "case_013": {
+    "root_cause": "expired_credential",
+    "split": "eval",
+    "variant": "cred-inventory-cert",
+    "red_herrings": [
+      "db_cpu_mild",
+      "unrelated_deploy"
+    ],
+    "key_evidence": [
+      {
+        "any_of": [
+          [
+            "search_logs",
+            "inventory"
+          ],
+          [
+            "get_service_config",
+            "inventory"
+          ],
+          [
+            "get_trace",
+            "inventory"
+          ]
+        ]
+      }
+    ]
+  },
+  "case_014": {
+    "root_cause": "dependency_unavailable",
+    "split": "dev",
+    "variant": "dep-payment",
+    "red_herrings": [],
+    "key_evidence": [
+      {
+        "any_of": [
+          [
+            "get_service_metrics",
+            "payment"
+          ],
+          [
+            "search_logs",
+            "payment"
+          ]
+        ]
+      }
+    ]
+  },
+  "case_015": {
+    "root_cause": "cpu_hot_loop",
+    "split": "dev",
+    "variant": "cpu-inventory",
+    "red_herrings": [
+      "cache_miss"
+    ],
+    "key_evidence": [
+      {
+        "any_of": [
+          [
+            "get_service_metrics",
+            "inventory"
+          ]
+        ]
+      },
+      {
+        "any_of": [
+          [
+            "get_trace",
+            "inventory"
+          ],
+          [
+            "search_logs",
+            "inventory"
+          ]
+        ]
+      }
+    ]
+  },
+  "case_016": {
+    "root_cause": "db_pool_exhaustion",
+    "split": "eval",
+    "variant": "pool-checkout-leak-dbcpu",
+    "red_herrings": [
+      "db_cpu_mild",
+      "unrelated_deploy"
+    ],
+    "key_evidence": [
+      {
+        "any_of": [
+          [
+            "get_service_metrics",
+            "checkout"
+          ],
+          [
+            "search_logs",
+            "checkout"
+          ]
+        ]
+      },
+      {
+        "any_of": [
+          [
+            "get_trace",
+            "checkout"
+          ],
+          [
+            "get_service_metrics",
+            "orders-db"
+          ]
+        ]
+      }
+    ]
+  },
+  "case_017": {
+    "root_cause": "db_pool_exhaustion",
+    "split": "eval",
+    "variant": "pool-inventory-leak",
+    "red_herrings": [
+      "cache_miss",
+      "unrelated_deploy"
+    ],
+    "key_evidence": [
+      {
+        "any_of": [
+          [
+            "get_service_metrics",
+            "inventory"
+          ],
+          [
+            "search_logs",
+            "inventory"
+          ]
+        ]
+      },
+      {
+        "any_of": [
+          [
+            "get_trace",
+            "inventory"
+          ],
+          [
+            "get_service_metrics",
+            "orders-db"
+          ]
+        ]
+      }
+    ]
+  },
+  "case_018": {
+    "root_cause": "memory_leak",
+    "split": "eval",
+    "variant": "leak-inventory-deploy",
+    "red_herrings": [
+      "noisy_warn",
+      "db_cpu_mild"
+    ],
+    "key_evidence": [
+      {
+        "any_of": [
+          [
+            "get_service_metrics",
+            "inventory"
+          ],
+          [
+            "search_logs",
+            "inventory"
+          ]
+        ]
+      }
+    ]
+  },
+  "case_019": {
+    "root_cause": "slow_db_query",
+    "split": "eval",
+    "variant": "slowq-inventory-confounded",
+    "red_herrings": [
+      "noisy_warn"
+    ],
+    "key_evidence": [
+      {
+        "any_of": [
+          [
+            "get_trace",
+            "inventory"
+          ],
+          [
+            "get_service_metrics",
+            "orders-db"
+          ],
+          [
+            "search_logs",
+            "orders-db"
+          ]
+        ]
+      }
+    ]
+  },
+  "case_020": {
+    "root_cause": "dependency_unavailable",
+    "split": "eval",
+    "variant": "dep-payment-gc",
+    "red_herrings": [
+      "gc_warn",
+      "unrelated_deploy"
+    ],
+    "key_evidence": [
+      {
+        "any_of": [
+          [
+            "get_service_metrics",
+            "payment"
+          ],
+          [
+            "search_logs",
+            "payment"
+          ]
+        ]
+      }
+    ]
+  }
+}

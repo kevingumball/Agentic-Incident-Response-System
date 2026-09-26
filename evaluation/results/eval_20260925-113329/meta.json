@@ -1,0 +1,13 @@
+{
+  "split": "eval",
+  "runs_per_case": 3,
+  "architectures": [
+    "react",
+    "verifier"
+  ],
+  "model": "gpt-4.1-mini",
+  "max_steps": 10,
+  "confidence_threshold": 0.8,
+  "competitor_threshold": 0.5,
+  "started": "20260925-113329"
+}
