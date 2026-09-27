@@ -1,0 +1,896 @@
+{
+  "case_id": "case_017",
+  "alert": "[ALERT 2026-09-25 14:06 UTC] checkout: p95 latency 173 ms -> 2,618 ms; 5xx rate 0.3% -> 3.4%",
+  "window": {
+    "date": "2026-09-25",
+    "times": [
+      "14:00",
+      "14:01",
+      "14:02",
+      "14:03",
+      "14:04",
+      "14:05",
+      "14:06",
+      "14:07",
+      "14:08",
+      "14:09"
+    ],
+    "timezone": "UTC"
+  },
+  "services": {
+    "api-gateway": {
+      "kind": "service",
+      "depends_on": [
+        "checkout",
+        "inventory"
+      ],
+      "metrics": {
+        "latency_p95_ms": {
+          "unit": "ms",
+          "series": [
+            218,
+            220,
+            217,
+            211,
+            215,
+            2682,
+            2689,
+            2619,
+            2740,
+            2626
+          ]
+        },
+        "error_rate_pct": {
+          "unit": "%",
+          "series": [
+            0.2,
+            0.2,
+            0.2,
+            0.2,
+            0.2,
+            3.1,
+            3.1,
+            3.1,
+            3.2,
+            3.2
+          ]
+        },
+        "rps": {
+          "unit": "rps",
+          "series": [
+            121,
+            122,
+            122,
+            119,
+            122,
+            116,
+            121,
+            117,
+            121,
+            121
+          ]
+        },
+        "cpu_pct": {
+          "unit": "%",
+          "series": [
+            22.4,
+            21.9,
+            21.4,
+            22.4,
+            21.6,
+            21.5,
+            21.9,
+            22.5,
+            21.7,
+            21.8
+          ]
+        },
+        "memory_mb": {
+          "unit": "MB",
+          "series": [
+            308,
+            310,
+            307,
+            312,
+            309,
+            309,
+            309,
+            308,
+            313,
+            310
+          ]
+        },
+        "rejected_requests_pct": {
+          "unit": "%",
+          "series": [
+            0.1,
+            0.1,
+            0.1,
+            0.1,
+            0.1,
+            0.1,
+            0.1,
+            0.1,
+            0.1,
+            0.1
+          ]
+        },
+        "instances_up": {
+          "unit": "count",
+          "series": [
+            3,
+            3,
+            3,
+            3,
+            3,
+            3,
+            3,
+            3,
+            3,
+            3
+          ]
+        }
+      },
+      "logs": [
+        {
+          "time": "14:00",
+          "level": "INFO",
+          "message": "health check ok",
+          "count": 120
+        }
+      ],
+      "trace": {
+        "endpoint": "POST /api/checkout",
+        "spans": [
+          {
+            "name": "route_match",
+            "service": "api-gateway",
+            "ms": 1
+          },
+          {
+            "name": "auth.verify_jwt",
+            "service": "api-gateway",
+            "ms": 4
+          },
+          {
+            "name": "proxy -> checkout",
+            "service": "checkout",
+            "ms": 182
+          }
+        ],
+        "total_ms": 193
+      },
+      "config": {
+        "env": {
+          "CHECKOUT_UPSTREAM": "http://checkout:8080",
+          "INVENTORY_UPSTREAM": "http://inventory:8080",
+          "RATE_LIMIT_RPS_PER_CLIENT": "500",
+          "JWT_ISSUER": "https://id.shop.example"
+        },
+        "deploys": [
+          {
+            "version": "baseline",
+            "time": "2026-09-21 10:12",
+            "change": "Routine dependency updates",
+            "diff": {}
+          }
+        ]
+      }
+    },
+    "checkout": {
+      "kind": "service",
+      "depends_on": [
+        "payment",
+        "inventory",
+        "orders-db",
+        "redis"
+      ],
+      "metrics": {
+        "latency_p95_ms": {
+          "unit": "ms",
+          "series": [
+            173,
+            177,
+            179,
+            172,
+            173,
+            2659,
+            2596,
+            2607,
+            2586,
+            2618
+          ]
+        },
+        "error_rate_pct": {
+          "unit": "%",
+          "series": [
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            3.6,
+            3.5,
+            3.6,
+            3.5,
+            3.4
+          ]
+        },
+        "rps": {
+          "unit": "rps",
+          "series": [
+            40,
+            40,
+            39,
+            40,
+            41,
+            41,
+            40,
+            41,
+            41,
+            41
+          ]
+        },
+        "cpu_pct": {
+          "unit": "%",
+          "series": [
+            29.5,
+            30.2,
+            29.7,
+            30.0,
+            29.6,
+            30.7,
+            29.4,
+            29.1,
+            30.2,
+            30.2
+          ]
+        },
+        "memory_mb": {
+          "unit": "MB",
+          "series": [
+            421,
+            417,
+            421,
+            417,
+            421,
+            421,
+            418,
+            423,
+            418,
+            418
+          ]
+        },
+        "db_pool_utilization_pct": {
+          "unit": "%",
+          "series": [
+            35.6,
+            35.6,
+            34.6,
+            35.1,
+            34.9,
+            36.0,
+            35.1,
+            34.8,
+            34.1,
+            35.2
+          ]
+        },
+        "cache_hit_rate_pct": {
+          "unit": "%",
+          "series": [
+            94.9,
+            93.1,
+            94.6,
+            93.5,
+            93.5,
+            94.2,
+            93.1,
+            94.0,
+            94.3,
+            94.2
+          ]
+        },
+        "instances_up": {
+          "unit": "count",
+          "series": [
+            3,
+            3,
+            3,
+            3,
+            3,
+            3,
+            3,
+            3,
+            3,
+            3
+          ]
+        },
+        "restarts": {
+          "unit": "count",
+          "series": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "logs": [
+        {
+          "time": "14:00",
+          "level": "INFO",
+          "message": "health check ok",
+          "count": 120
+        }
+      ],
+      "trace": {
+        "endpoint": "POST /checkout",
+        "spans": [
+          {
+            "name": "validate_cart",
+            "service": "checkout",
+            "ms": 8
+          },
+          {
+            "name": "cache.get pricing",
+            "service": "redis",
+            "ms": 1
+          },
+          {
+            "name": "inventory.reserve",
+            "service": "inventory",
+            "ms": 2480,
+            "status": "slow"
+          },
+          {
+            "name": "db.acquire_connection",
+            "service": "checkout",
+            "ms": 1
+          },
+          {
+            "name": "db.query select_recent_orders",
+            "service": "orders-db",
+            "ms": 9
+          },
+          {
+            "name": "db.query insert_order",
+            "service": "orders-db",
+            "ms": 7
+          },
+          {
+            "name": "publish order_created",
+            "service": "checkout",
+            "ms": 3
+          },
+          {
+            "name": "payment.charge",
+            "service": "payment",
+            "ms": 110
+          }
+        ],
+        "total_ms": 2625
+      },
+      "config": {
+        "env": {
+          "DB_POOL_SIZE": "20",
+          "DB_URL": "postgres://orders-db:5432/orders",
+          "REDIS_URL": "redis://redis:6379",
+          "PAYMENT_URL": "http://payment:8080",
+          "INVENTORY_URL": "http://inventory:8080",
+          "PAYMENT_TIMEOUT_MS": "3000",
+          "ORDER_EVENTS_TOPIC": "orders.created.v1",
+          "MEMORY_LIMIT_MB": "2048",
+          "PROMO_BANNER_ENABLED": "true"
+        },
+        "deploys": [
+          {
+            "version": "baseline",
+            "time": "2026-09-21 10:12",
+            "change": "Routine dependency updates",
+            "diff": {}
+          },
+          {
+            "version": "v9.4.1",
+            "time": "2026-09-25 14:04",
+            "change": "Enable autumn promo banner",
+            "diff": {
+              "PROMO_BANNER_ENABLED": "false -> true"
+            }
+          }
+        ]
+      }
+    },
+    "inventory": {
+      "kind": "service",
+      "depends_on": [
+        "orders-db",
+        "supplier-api (external)"
+      ],
+      "metrics": {
+        "latency_p95_ms": {
+          "unit": "ms",
+          "series": [
+            58,
+            59,
+            59,
+            59,
+            60,
+            2545,
+            2531,
+            2546,
+            2523,
+            2542
+          ]
+        },
+        "error_rate_pct": {
+          "unit": "%",
+          "series": [
+            0.2,
+            0.2,
+            0.2,
+            0.2,
+            0.2,
+            4.1,
+            4.0,
+            3.9,
+            3.9,
+            4.1
+          ]
+        },
+        "rps": {
+          "unit": "rps",
+          "series": [
+            70,
+            72,
+            69,
+            69,
+            69,
+            69,
+            70,
+            71,
+            69,
+            69
+          ]
+        },
+        "cpu_pct": {
+          "unit": "%",
+          "series": [
+            18.1,
+            17.8,
+            18.1,
+            18.0,
+            17.9,
+            99.9,
+            98.4,
+            99.7,
+            99.6,
+            99.2
+          ]
+        },
+        "memory_mb": {
+          "unit": "MB",
+          "series": [
+            376,
+            382,
+            381,
+            377,
+            379,
+            376,
+            382,
+            379,
+            381,
+            380
+          ]
+        },
+        "db_pool_utilization_pct": {
+          "unit": "%",
+          "series": [
+            24.4,
+            25.6,
+            24.5,
+            25.1,
+            24.4,
+            25.1,
+            25.7,
+            25.2,
+            25.5,
+            24.4
+          ]
+        },
+        "instances_up": {
+          "unit": "count",
+          "series": [
+            3,
+            3,
+            3,
+            3,
+            3,
+            3,
+            3,
+            3,
+            3,
+            3
+          ]
+        },
+        "restarts": {
+          "unit": "count",
+          "series": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "logs": [
+        {
+          "time": "14:00",
+          "level": "INFO",
+          "message": "health check ok",
+          "count": 120
+        },
+        {
+          "time": "14:04",
+          "level": "INFO",
+          "message": "Imported 18,240 SKUs from supplier feed 'acme-weekly'",
+          "count": 1
+        }
+      ],
+      "trace": {
+        "unavailable": "trace sampling is disabled for this service"
+      },
+      "config": {
+        "env": {
+          "DB_POOL_SIZE": "15",
+          "DB_URL": "postgres://orders-db:5432/orders",
+          "SUPPLIER_API_URL": "https://supplier.example/api",
+          "MEMORY_LIMIT_MB": "2048",
+          "SUPPLIER_CLIENT_CERT": "/etc/certs/supplier-client.pem (not_after 2027-03-01T00:00:00Z)"
+        },
+        "deploys": [
+          {
+            "version": "baseline",
+            "time": "2026-09-21 10:12",
+            "change": "Routine dependency updates",
+            "diff": {}
+          }
+        ]
+      }
+    },
+    "payment": {
+      "kind": "service",
+      "depends_on": [
+        "payprovider-api (external)"
+      ],
+      "metrics": {
+        "latency_p95_ms": {
+          "unit": "ms",
+          "series": [
+            246,
+            245,
+            238,
+            246,
+            242,
+            240,
+            240,
+            237,
+            240,
+            237
+          ]
+        },
+        "error_rate_pct": {
+          "unit": "%",
+          "series": [
+            0.2,
+            0.2,
+            0.2,
+            0.2,
+            0.2,
+            0.2,
+            0.2,
+            0.2,
+            0.2,
+            0.2
+          ]
+        },
+        "rps": {
+          "unit": "rps",
+          "series": [
+            38,
+            39,
+            37,
+            39,
+            37,
+            39,
+            37,
+            39,
+            38,
+            38
+          ]
+        },
+        "cpu_pct": {
+          "unit": "%",
+          "series": [
+            15.3,
+            15.0,
+            15.4,
+            15.0,
+            15.3,
+            15.3,
+            15.1,
+            14.9,
+            15.3,
+            14.7
+          ]
+        },
+        "memory_mb": {
+          "unit": "MB",
+          "series": [
+            349,
+            348,
+            353,
+            350,
+            352,
+            353,
+            349,
+            347,
+            352,
+            353
+          ]
+        },
+        "instances_up": {
+          "unit": "count",
+          "series": [
+            3,
+            3,
+            3,
+            3,
+            3,
+            3,
+            3,
+            3,
+            3,
+            3
+          ]
+        },
+        "restarts": {
+          "unit": "count",
+          "series": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "logs": [
+        {
+          "time": "14:00",
+          "level": "INFO",
+          "message": "health check ok",
+          "count": 120
+        }
+      ],
+      "trace": {
+        "endpoint": "POST /charge",
+        "spans": [
+          {
+            "name": "load_merchant_config",
+            "service": "payment",
+            "ms": 3
+          },
+          {
+            "name": "provider.create_charge",
+            "service": "payprovider-api (external)",
+            "ms": 220
+          }
+        ],
+        "total_ms": 229
+      },
+      "config": {
+        "env": {
+          "PAYMENT_PROVIDER_URL": "https://api.payprovider.example/v1",
+          "PAYMENT_PROVIDER_TOKEN": "****a91f (expires_at 2026-12-24T00:00:00Z)",
+          "MERCHANT_ID": "shop-prod-01"
+        },
+        "deploys": [
+          {
+            "version": "baseline",
+            "time": "2026-09-21 10:12",
+            "change": "Routine dependency updates",
+            "diff": {}
+          }
+        ]
+      }
+    },
+    "orders-db": {
+      "kind": "datastore",
+      "depends_on": [],
+      "metrics": {
+        "cpu_pct": {
+          "unit": "%",
+          "series": [
+            25.6,
+            25.6,
+            24.6,
+            25.6,
+            24.4,
+            25.3,
+            24.9,
+            24.9,
+            25.2,
+            25.2
+          ]
+        },
+        "query_latency_p95_ms": {
+          "unit": "ms",
+          "series": [
+            12,
+            12,
+            12,
+            12,
+            12,
+            12,
+            12,
+            12,
+            12,
+            12
+          ]
+        },
+        "active_connections": {
+          "unit": "count",
+          "series": [
+            39,
+            39,
+            40,
+            41,
+            41,
+            40,
+            41,
+            39,
+            41,
+            41
+          ]
+        },
+        "slow_queries_per_min": {
+          "unit": "per_min",
+          "series": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "logs": [
+        {
+          "time": "14:00",
+          "level": "INFO",
+          "message": "health check ok",
+          "count": 120
+        }
+      ],
+      "trace": null,
+      "config": {
+        "env": {
+          "engine": "PostgreSQL 16",
+          "max_connections": "200"
+        },
+        "deploys": []
+      }
+    },
+    "redis": {
+      "kind": "datastore",
+      "depends_on": [],
+      "metrics": {
+        "cpu_pct": {
+          "unit": "%",
+          "series": [
+            7.8,
+            7.9,
+            8.0,
+            7.9,
+            8.2,
+            8.0,
+            7.8,
+            8.2,
+            7.9,
+            8.1
+          ]
+        },
+        "memory_mb": {
+          "unit": "MB",
+          "series": [
+            908,
+            907,
+            908,
+            909,
+            900,
+            894,
+            892,
+            900,
+            906,
+            896
+          ]
+        },
+        "ops_per_sec": {
+          "unit": "ops/s",
+          "series": [
+            5109,
+            5277,
+            5096,
+            5327,
+            5089,
+            5179,
+            5316,
+            5078,
+            5219,
+            5284
+          ]
+        },
+        "evictions_per_min": {
+          "unit": "per_min",
+          "series": [
+            0,
+            0,
+            0,
+            0,
+            34,
+            35,
+            29,
+            33,
+            32,
+            34
+          ]
+        }
+      },
+      "logs": [
+        {
+          "time": "14:00",
+          "level": "INFO",
+          "message": "health check ok",
+          "count": 120
+        },
+        {
+          "time": "14:04",
+          "level": "WARN",
+          "message": "maxmemory reached, evicting keys (allkeys-lru)",
+          "count": 30
+        }
+      ],
+      "trace": null,
+      "config": {
+        "env": {
+          "maxmemory": "2gb",
+          "maxmemory-policy": "allkeys-lru"
+        },
+        "deploys": []
+      }
+    }
+  }
+}

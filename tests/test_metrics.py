@@ -52,3 +52,9 @@ def test_aggregate_counts_cases_correct_in_every_run():
     assert stats["cases_always_correct"] == 1
     assert stats["premature_diagnosis_rate"] == 0
     assert stats["false_diagnosis_rate"] == 0.25
+
+
+def test_errored_run_is_never_correct_even_when_truth_is_unknown():
+    label = {"root_cause": "unknown", "key_evidence": []}
+    s = score_run(run("unknown", 0.0, [], status="error"), label)
+    assert not s["correct"] and s["error"]

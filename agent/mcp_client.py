@@ -30,12 +30,12 @@ class McpContext:
 
 
 @asynccontextmanager
-async def connect(case_id: str) -> AsyncIterator[McpContext]:
+async def connect(case_id: str, suite: str = "v1") -> AsyncIterator[McpContext]:
     client = MultiServerMCPClient({
         "observability": {
             "transport": "stdio",
             "command": sys.executable,
-            "args": ["-m", "mcp_server.observability_server", "--scenario", case_id],
+            "args": ["-m", "mcp_server.observability_server", "--scenario", case_id, "--suite", suite],
             "cwd": str(ROOT),
         }
     })

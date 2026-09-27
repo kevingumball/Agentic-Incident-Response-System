@@ -16,7 +16,18 @@ from agent.baseline_react import ReActAgent
 from agent.graph import IncidentAgent, make_llm
 from agent.mcp_client import connect
 
-Architecture = Literal["verifier", "react"]
+# Architecture name -> verification mode of IncidentAgent (None = ReAct baseline).
+# Ablation ladder: react < plan_hyp < plan_hyp_rules < verifier (full phase-1 system).
+ARCHITECTURES: dict[str, str | None] = {
+    "react": None,
+    "plan_hyp": "none",
+    "plan_hyp_rules": "rules",
+    "verifier": "rules+skeptic",
+    # Phase 2 (driven by failure attribution): checklist + margin rule instead of LLM-confidence gates
+    "plan_hyp_checklist": "checklist",
+    "verifier_v2": "checklist+skeptic",
+}
+Architecture = Literal["react", "plan_hyp", "plan_hyp_rules", "verifier", "plan_hyp_checklist", "verifier_v2"]
 EventHandler = Callable[[str, dict], None]
 Approver = Callable[[dict], Awaitable[bool]]
 
@@ -43,14 +54,17 @@ class RunResult:
     remediation: dict | None = None
     evidence: list[dict] = field(default_factory=list)
     report: str | None = None
+    trace: list[dict] = field(default_factory=list)
+    suite: str = "v1"
     error: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
-async def _run_verifier(ctx, llm, result: RunResult, on_event: EventHandler | None, approver: Approver) -> None:
-    graph = IncidentAgent(ctx.tools, llm).build()
+async def _run_graph_agent(ctx, llm, verification: str, result: RunResult, on_event: EventHandler | None,
+                           approver: Approver) -> None:
+    graph = IncidentAgent(ctx.tools, llm, verification=verification).build()
     cfg = {"configurable": {"thread_id": uuid.uuid4().hex}, "recursion_limit": 200}
     payload: Any = {"alert": ctx.alert}
     while True:
@@ -80,17 +94,26 @@ async def _run_verifier(ctx, llm, result: RunResult, on_event: EventHandler | No
     result.remediation = state.get("remediation")
     result.evidence = state.get("evidence", [])
     result.report = state.get("report")
+    result.trace = state.get("trace", [])
 
 
 async def _run_react(ctx, llm, result: RunResult, on_event: EventHandler | None) -> None:
     graph = ReActAgent(ctx.read_tools, llm).build()
     final: dict = {}
+    start = time.time()
     async for chunk in graph.astream(
         {"messages": [HumanMessage(ctx.alert)]}, {"recursion_limit": 200}, stream_mode="updates"
     ):
         for node, update in chunk.items():
             if on_event:
                 on_event(f"react:{node}", update or {})
+            entry = {"node": node, "t": round(time.time() - start, 2)}
+            if node == "agent":
+                calls = [tc for m in update["messages"] if isinstance(m, AIMessage) for tc in m.tool_calls]
+                entry["action"] = [f"{tc['name']}({tc['args']})" for tc in calls]
+            elif node == "diagnose":
+                entry["diagnosis"] = update["diagnosis"]
+            result.trace.append(entry)
             if node == "diagnose":
                 final = update["diagnosis"]
             elif node == "agent":
@@ -113,18 +136,20 @@ async def run_incident(
     model: str | None = None,
     on_event: EventHandler | None = None,
     approver: Approver = auto_approve,
+    suite: str = "v1",
 ) -> RunResult:
     model = model or config.MODEL
-    result = RunResult(case_id=case_id, architecture=architecture, model=model)
+    result = RunResult(case_id=case_id, architecture=architecture, model=model, suite=suite)
     llm = make_llm(model)
     start = time.time()
     try:
         with get_usage_metadata_callback() as usage:
-            async with connect(case_id) as ctx:
-                if architecture == "verifier":
-                    await _run_verifier(ctx, llm, result, on_event, approver)
-                else:
+            async with connect(case_id, suite) as ctx:
+                verification = ARCHITECTURES[architecture]
+                if verification is None:
                     await _run_react(ctx, llm, result, on_event)
+                else:
+                    await _run_graph_agent(ctx, llm, verification, result, on_event, approver)
         for model_name, u in usage.usage_metadata.items():
             result.input_tokens += u.get("input_tokens", 0)
             result.output_tokens += u.get("output_tokens", 0)

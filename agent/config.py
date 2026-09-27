@@ -6,6 +6,8 @@ load_dotenv()
 
 MODEL = os.getenv("AGENT_MODEL", "gpt-4.1-mini")
 TEMPERATURE = 0.0
+LLM_TIMEOUT_S = 30
+LLM_MAX_RETRIES = 6
 
 # Investigation budget (tool calls), shared by both architectures for a fair comparison.
 MAX_STEPS = 10
@@ -14,6 +16,8 @@ MAX_STEPS = 10
 CONFIDENCE_THRESHOLD = 0.8
 COMPETITOR_THRESHOLD = 0.5
 MIN_SOURCE_TYPES = 2
+# Phase-2 verifier (checklist mode): top must lead the runner-up by this margin.
+MARGIN_THRESHOLD = 0.3
 
 # USD per 1M tokens (input, output). Update if pricing changes.
 PRICING = {

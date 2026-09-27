@@ -100,8 +100,9 @@ def main() -> None:
     global backend
     parser = argparse.ArgumentParser()
     parser.add_argument("--scenario", required=True, help="scenario id, e.g. case_003")
+    parser.add_argument("--suite", default="v1", help="benchmark suite: v1 or v2")
     args = parser.parse_args()
-    backend = ScenarioBackend.load(args.scenario)
+    backend = ScenarioBackend.load(args.scenario, args.suite)
     mcp.run(transport="stdio")
 
 

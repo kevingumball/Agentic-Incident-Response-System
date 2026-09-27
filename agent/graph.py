@@ -9,6 +9,8 @@ verifier -> report  (step budget exhausted: undetermined)
 
 from __future__ import annotations
 
+import inspect
+import time
 from typing import Literal
 
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -23,18 +25,22 @@ from agent.mcp_client import WRITE_TOOLS, content_to_text
 from agent.schemas import (
     HypothesisUpdate,
     PlannerDecision,
+    PlannerDecisionOrConclude,
     RemediationProposal,
     SkepticReview,
     TriageResult,
 )
 from agent.state import TOOL_SOURCE, Evidence, Hypothesis, IncidentState, Observation, ToolCall
-from agent.verifier import check_rules, open_objections, ranked
+from agent.verifier import check_rules, check_rules_v2, open_objections, ranked
 
 MAX_LABELS_PER_EVIDENCE = 2
 
 
 def make_llm(model: str | None = None) -> ChatOpenAI:
-    return ChatOpenAI(model=model or config.MODEL, temperature=config.TEMPERATURE, max_retries=3, timeout=90)
+    # Normal calls finish in 1-5 s. Some requests stall until the timeout under concurrent load,
+    # so a short timeout with more retries bounds that stall (phase 2, DEVLOG 10.2).
+    return ChatOpenAI(model=model or config.MODEL, temperature=config.TEMPERATURE,
+                      max_retries=config.LLM_MAX_RETRIES, timeout=config.LLM_TIMEOUT_S)
 
 
 # ---------------------------------------------------------------------------
@@ -124,23 +130,39 @@ def build_report(state: IncidentState) -> str:
 # Agent
 # ---------------------------------------------------------------------------
 
+Verification = Literal["none", "rules", "rules+skeptic", "checklist", "checklist+skeptic"]
+
+
 class IncidentAgent:
-    def __init__(self, tools: dict[str, BaseTool], llm: ChatOpenAI | None = None, max_steps: int = config.MAX_STEPS):
+    """Planner + Hypothesis agent with a configurable verification stage (for ablations).
+
+    verification="none"          planner decides when to conclude (no verifier)
+    verification="rules"         hard rules only
+    verification="rules+skeptic" hard rules, then the LLM skeptic (the phase-1 system)
+    verification="checklist"     phase-2 rules: margin rule + per-label evidence checklist
+    verification="checklist+skeptic"  phase-2 rules, then the skeptic (definition + objections)
+    """
+
+    def __init__(self, tools: dict[str, BaseTool], llm: ChatOpenAI | None = None,
+                 max_steps: int = config.MAX_STEPS, verification: Verification = "rules+skeptic"):
         self.tools = tools
         self.read_tools = {n: t for n, t in tools.items() if n not in WRITE_TOOLS}
         self.max_steps = max_steps
+        self.verification = verification
         llm = llm or make_llm()
 
         def structured(schema):
             return llm.with_structured_output(schema, method="function_calling")
 
         self.triage_llm = structured(TriageResult)
-        self.planner_llm = structured(PlannerDecision)
+        self.planner_llm = structured(PlannerDecisionOrConclude if verification == "none" else PlannerDecision)
         self.hypothesis_llm = structured(HypothesisUpdate)
         self.skeptic_llm = structured(SkepticReview)
         self.remediation_llm = structured(RemediationProposal)
         tool_docs = "\n".join(f"- {t.name}{list(t.args)}: {t.description}" for t in self.read_tools.values())
         self.planner_system = prompts.PLANNER_SYSTEM.replace("{tools}", tool_docs)
+        if verification == "none":
+            self.planner_system += prompts.PLANNER_CONCLUDE_OPTION
 
     # -- nodes ---------------------------------------------------------------
 
@@ -159,10 +181,21 @@ class IncidentAgent:
             HumanMessage(f"{investigation_context(state)}\n\nVerifier feedback: {feedback}\n"
                          f"Tool calls remaining: {steps_left}\n\nChoose the next check."),
         ])
+        if d.tool == "conclude":
+            return {"next_action": {"tool": "conclude", "args": {}, "reason": d.reasoning, "step": 0},
+                    "_trace": {"action": "conclude", "reason": d.reasoning}}
         schema_args = self.read_tools[d.tool].args
         candidate = {"service": d.service, "metric": d.metric, "query": d.query}
         args = {k: v for k, v in candidate.items() if k in schema_args and (k == "service" or v)}
-        return {"next_action": {"tool": d.tool, "args": args, "reason": d.reasoning, "step": 0}}
+        action = {"tool": d.tool, "args": args, "reason": d.reasoning, "step": 0}
+        return {"next_action": action, "_trace": {"action": fmt_call(action), "reason": d.reasoning}}
+
+    def conclude(self, state: IncidentState) -> dict:
+        """No-verifier ablation: accept the current top hypothesis when the planner says so."""
+        best = ranked(state.get("hypotheses", []))
+        if not best or best[0]["label"] == "unknown":
+            return {"status": "undetermined", "root_cause": None, "_trace": {"decision": "undetermined"}}
+        return {"status": "diagnosed", "root_cause": best[0], "_trace": {"decision": "diagnosed", "top": best[0]}}
 
     async def executor(self, state: IncidentState) -> dict:
         action = state["next_action"]
@@ -204,14 +237,40 @@ class IncidentAgent:
              "supports": cap(list(e.supports)), "contradicts": cap(list(e.contradicts)), "step": state["step_count"]}
             for e in u.new_evidence
         ]
-        best: dict[str, float] = {}
+        best: dict[str, Hypothesis] = {}
         for h in u.hypotheses:
-            best[h.label] = max(best.get(h.label, 0.0), h.confidence)
-        hypotheses = ranked([{"label": k, "confidence": v} for k, v in best.items()])
-        return {"evidence": new_evidence, "hypotheses": hypotheses}
+            if h.label not in best or h.confidence > best[h.label]["confidence"]:
+                best[h.label] = {"label": h.label, "confidence": h.confidence, "service": h.service}
+        hypotheses = ranked(list(best.values()))
+        return {"evidence": new_evidence, "hypotheses": hypotheses,
+                "_trace": {"new_evidence": new_evidence, "hypotheses": hypotheses[:4]}}
 
     async def verifier(self, state: IncidentState) -> dict:
-        check = check_rules(state.get("hypotheses", []), state.get("evidence", []))
+        out = await self._verify(state)
+        rc = out.get("root_cause")
+        out["_trace"] = {"decision": out.get("status", "continue"),
+                         "feedback": out.get("verifier_feedback", ""),
+                         "accepted": rc["label"] if rc else None}
+        return out
+
+    async def _verify(self, state: IncidentState) -> dict:
+        at_budget = state.get("step_count", 0) >= self.max_steps
+        if self.verification == "none":
+            # Like ReAct: no gate. At the budget, commit to the best hypothesis instead of refusing.
+            if not at_budget:
+                return {"verifier_feedback": ""}
+            best = ranked(state.get("hypotheses", []))
+            if best and best[0]["label"] != "unknown":
+                return {"status": "diagnosed", "root_cause": best[0], "verifier_feedback": "Step budget reached."}
+            return {"status": "undetermined", "root_cause": None, "verifier_feedback": "Step budget reached."}
+
+        v2 = self.verification.startswith("checklist")
+        if v2:
+            check = check_rules_v2(state.get("hypotheses", []), state.get("evidence", []), state.get("actions_taken", []))
+        else:
+            check = check_rules(state.get("hypotheses", []), state.get("evidence", []))
+        if check.passed and self.verification in ("rules", "checklist"):
+            return {"status": "diagnosed", "root_cause": check.top, "verifier_feedback": "Accepted by rules."}
         if check.passed:
             top = check.top
             review: SkepticReview = await self.skeptic_llm.ainvoke([
@@ -222,12 +281,14 @@ class IncidentAgent:
             objections = open_objections(
                 [o.model_dump() for o in review.objections], state.get("actions_taken", []), top["label"]
             )
-            if review.definition_match and review.inspected_directly and not objections:
+            # In checklist mode, "inspected directly" is already enforced in code by the checklist.
+            inspected = True if v2 else review.inspected_directly
+            if review.definition_match and inspected and not objections:
                 return {"status": "diagnosed", "root_cause": top, "verifier_feedback": "Accepted by rules and reviewer."}
             gaps = []
             if not review.definition_match:
                 gaps.append(f"evidence does not yet satisfy the definition of {top['label']}. {review.concern}")
-            if not review.inspected_directly:
+            if not inspected:
                 gaps.append(f"the faulty component has not been inspected directly. {review.concern}")
             for o in objections:
                 gaps.append(f"rule out {o['alternative']} with {o['check_tool']}(service=\"{o['check_service']}\"): {o['why']}")
@@ -235,7 +296,7 @@ class IncidentAgent:
         else:
             feedback = " ".join(check.reasons)
 
-        if state.get("step_count", 0) >= self.max_steps:
+        if at_budget:
             return {"status": "undetermined", "root_cause": None, "verifier_feedback": feedback}
         return {"verifier_feedback": feedback}
 
@@ -279,16 +340,40 @@ class IncidentAgent:
     def route_after_approval(state: IncidentState) -> Literal["apply_fix", "report"]:
         return "apply_fix" if state.get("approved") else "report"
 
+    @staticmethod
+    def route_after_planner(state: IncidentState) -> Literal["executor", "conclude"]:
+        return "conclude" if state["next_action"]["tool"] == "conclude" else "executor"
+
+    @staticmethod
+    def route_after_conclude(state: IncidentState) -> Literal["remediation", "report"]:
+        return "remediation" if state.get("status") == "diagnosed" else "report"
+
     # -- graph ---------------------------------------------------------------
+
+    @staticmethod
+    def _traced(name: str, fn):
+        """Wrap a node so every call appends a trace entry (node, step, seconds, details)."""
+        async def run(state: IncidentState) -> dict:
+            start = time.time()
+            out = fn(state)
+            if inspect.isawaitable(out):
+                out = await out
+            out = dict(out or {})
+            entry = {"node": name, "step": out.get("step_count", state.get("step_count", 0)),
+                     "seconds": round(time.time() - start, 2), **out.pop("_trace", {})}
+            out["trace"] = [entry]
+            return out
+        return run
 
     def build(self, checkpointer=None):
         g = StateGraph(IncidentState)
-        for name in ("triage", "planner", "executor", "hypothesis", "verifier",
+        for name in ("triage", "planner", "executor", "hypothesis", "verifier", "conclude",
                      "remediation", "human_approval", "apply_fix", "report"):
-            g.add_node(name, getattr(self, name))
+            g.add_node(name, self._traced(name, getattr(self, name)))
         g.add_edge(START, "triage")
         g.add_edge("triage", "planner")
-        g.add_edge("planner", "executor")
+        g.add_conditional_edges("planner", self.route_after_planner)
+        g.add_conditional_edges("conclude", self.route_after_conclude)
         g.add_edge("executor", "hypothesis")
         g.add_edge("hypothesis", "verifier")
         g.add_conditional_edges("verifier", self.route_after_verifier)

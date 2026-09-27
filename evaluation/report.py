@@ -9,9 +9,16 @@ import json
 import sys
 from pathlib import Path
 
-from evaluation.metrics import aggregate, confusions, per_root_cause
+from evaluation.metrics import aggregate, confusions, per_root_cause, score_run
 
-ARCH_NAMES = {"react": "ReAct baseline", "verifier": "Planner + Hypothesis + Verifier"}
+ARCH_NAMES = {
+    "react": "A. ReAct baseline",
+    "plan_hyp": "B. Planner + Hypothesis (no verifier)",
+    "plan_hyp_rules": "C. B + hard rules",
+    "verifier": "D. C + LLM skeptic (phase-1 system)",
+    "plan_hyp_checklist": "E. B + checklist & margin rules",
+    "verifier_v2": "F. E + LLM skeptic",
+}
 
 
 def _pct(x: float) -> str:
@@ -23,7 +30,7 @@ def render_summary(records: list[dict], labels: dict[str, dict], meta: dict) -> 
     per_arch = {a: [r for r in records if r["architecture"] == a] for a in archs}
     stats = {a: aggregate(per_arch[a], labels) for a in archs}
 
-    out = [f"# Benchmark results ({meta['split']} split)", "",
+    out = [f"# Benchmark results (suite {meta.get('suite', 'v1')}, {meta['split']} split)", "",
            f"Model `{meta['model']}` | {meta['runs_per_case']} run(s) per case | "
            f"step budget {meta['max_steps']} tool calls | started {meta['started']}", "",
            "| Architecture | Accuracy | Cases correct in every run | False Diagnosis | Premature Diagnosis "
@@ -42,6 +49,18 @@ def render_summary(records: list[dict], labels: dict[str, dict], meta: dict) -> 
     if errors:
         out += ["", f"Runs that errored (counted as wrong): {errors}"]
 
+    tiers = sorted({v.get("tier") for v in labels.values() if v.get("tier")}, key=["easy", "medium", "hard"].index)
+    if tiers:
+        out += ["", "## Accuracy by difficulty tier", "",
+                "| Tier | " + " | ".join(ARCH_NAMES.get(a, a) for a in archs) + " |", "|---|" + "---|" * len(archs)]
+        for tier in tiers:
+            cells = []
+            for a in archs:
+                rs = [r for r in per_arch[a] if labels[r["case_id"]].get("tier") == tier]
+                ok = sum(score_run(r, labels[r["case_id"]])["correct"] for r in rs)
+                cells.append(f"{ok}/{len(rs)}" if rs else "-")
+            out.append(f"| {tier} | " + " | ".join(cells) + " |")
+
     out += ["", "## Accuracy by root cause", "",
             "| Root cause | " + " | ".join(ARCH_NAMES.get(a, a) for a in archs) + " |",
             "|---|" + "---|" * len(archs)]
@@ -58,7 +77,9 @@ def render_summary(records: list[dict], labels: dict[str, dict], meta: dict) -> 
 
     out += ["", "Definitions: *False Diagnosis* = wrong label with confidence >= 0.8. "
             "*Premature Diagnosis* = a (non-unknown) diagnosis given before the case's key discriminating "
-            "evidence was queried, regardless of correctness. *Unknown* = no diagnosis within the step budget."]
+            "evidence was queried, regardless of correctness. *Unknown* = the run answered 'unknown' (correct only "
+            "when the true cause is outside the taxonomy). *Avg Time* is wall-clock under concurrent runs and "
+            "includes API rate-limit waits."]
     return "\n".join(out) + "\n"
 
 
@@ -66,7 +87,8 @@ def main() -> None:
     run_dir = Path(sys.argv[1])
     records = [json.loads(line) for line in (run_dir / "runs.jsonl").read_text(encoding="utf-8").splitlines() if line]
     meta = json.loads((run_dir / "meta.json").read_text(encoding="utf-8"))
-    labels = json.loads((Path(__file__).parent / "labels.json").read_text(encoding="utf-8"))
+    label_file = "labels.json" if meta.get("suite", "v1") == "v1" else f"labels_{meta['suite']}.json"
+    labels = json.loads((Path(__file__).parent / label_file).read_text(encoding="utf-8"))
     summary = render_summary(records, labels, meta)
     (run_dir / "summary.md").write_text(summary, encoding="utf-8")
     print(summary)

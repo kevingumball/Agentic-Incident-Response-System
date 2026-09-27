@@ -23,14 +23,16 @@ def key_evidence_covered(tool_calls: list[dict], key_evidence: list[dict]) -> bo
 def score_run(run: dict, label: dict) -> dict:
     """Per-run flags used by the aggregate metrics."""
     predicted = run["predicted"]
-    diagnosed = predicted != "unknown" and run["status"] != "error"
-    correct = predicted == label["root_cause"]
+    errored = run["status"] == "error"
+    diagnosed = predicted != "unknown" and not errored
+    # An errored run defaults to "unknown"; it must never count as correct, even when the truth is unknown.
+    correct = predicted == label["root_cause"] and not errored
     return {
         "correct": correct,
         "diagnosed": diagnosed,
         "false_diagnosis": diagnosed and not correct and run["confidence"] >= HIGH_CONFIDENCE,
         "premature": diagnosed and not key_evidence_covered(run["tool_calls"], label["key_evidence"]),
-        "error": run["status"] == "error",
+        "error": errored,
     }
 
 
@@ -70,7 +72,7 @@ def per_root_cause(runs: list[dict], labels: dict[str, dict]) -> dict[str, tuple
     for r in runs:
         rc = labels[r["case_id"]]["root_cause"]
         out[rc][1] += 1
-        out[rc][0] += r["predicted"] == rc
+        out[rc][0] += score_run(r, labels[r["case_id"]])["correct"]
     return {k: (v[0], v[1]) for k, v in sorted(out.items())}
 
 
@@ -79,6 +81,7 @@ def confusions(runs: list[dict], labels: dict[str, dict]) -> dict[tuple[str, str
     out: dict[tuple[str, str], int] = defaultdict(int)
     for r in runs:
         truth = labels[r["case_id"]]["root_cause"]
-        if r["predicted"] != truth:
-            out[(truth, r["predicted"])] += 1
+        predicted = "ERROR" if r["status"] == "error" else r["predicted"]
+        if predicted != truth:
+            out[(truth, predicted)] += 1
     return dict(sorted(out.items(), key=lambda kv: -kv[1]))

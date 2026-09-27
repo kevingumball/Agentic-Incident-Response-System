@@ -5,7 +5,7 @@ explicit fields; each node reads and writes only the fields it owns.
 """
 
 import operator
-from typing import Annotated, Literal, TypedDict
+from typing import Annotated, Literal, NotRequired, TypedDict
 
 EvidenceSource = Literal["metrics", "logs", "traces", "config"]
 
@@ -29,6 +29,7 @@ class Evidence(TypedDict):
 class Hypothesis(TypedDict):
     label: str               # taxonomy label or "unknown"
     confidence: float
+    service: NotRequired[str]   # where the fault is located (used by the evidence checklist)
 
 
 class ToolCall(TypedDict):
@@ -63,3 +64,4 @@ class IncidentState(TypedDict, total=False):
     approved: bool | None
     fix_result: str | None
     report: str
+    trace: Annotated[list[dict], operator.add]   # per-node record for failure attribution

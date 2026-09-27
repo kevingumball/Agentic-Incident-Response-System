@@ -15,7 +15,10 @@ import re
 from pathlib import Path
 from statistics import median
 
-SCENARIO_DIR = Path(__file__).resolve().parents[1] / "scenarios"
+ROOT = Path(__file__).resolve().parents[1]
+# Benchmark suites: v1 (phase 1) and v2 (harder, phase 2). Each directory holds observable data only.
+SUITE_DIRS = {"v1": ROOT / "scenarios", "v2": ROOT / "scenarios_v2"}
+SCENARIO_DIR = SUITE_DIRS["v1"]
 
 LEVEL_ORDER = {"ERROR": 0, "WARN": 1, "INFO": 2, "DEBUG": 3}
 
@@ -66,10 +69,10 @@ class ScenarioBackend:
         self.applied_fixes: list[dict] = []
 
     @classmethod
-    def load(cls, case_id: str) -> "ScenarioBackend":
-        if not re.fullmatch(r"case_\d{3}", case_id):
-            raise ValueError(f"invalid case id: {case_id!r}")
-        path = SCENARIO_DIR / f"{case_id}.json"
+    def load(cls, case_id: str, suite: str = "v1") -> "ScenarioBackend":
+        if not re.fullmatch(r"case_\d{3}", case_id) or suite not in SUITE_DIRS:
+            raise ValueError(f"invalid case id or suite: {case_id!r} / {suite!r}")
+        path = SUITE_DIRS[suite] / f"{case_id}.json"
         return cls(json.loads(path.read_text(encoding="utf-8")))
 
     # -- helpers -------------------------------------------------------------
@@ -148,6 +151,8 @@ class ScenarioBackend:
         trace = svc["trace"]
         if not trace:
             return f"No traces received from {service} in the last 10 minutes (service may not be running)."
+        if trace.get("unavailable"):
+            return f"Tracing unavailable for {service}: {trace['unavailable']}."
         total = trace["total_ms"]
         status = "error" if any(sp.get("status") == "error" for sp in trace["spans"]) else "ok"
         lines = [f"Slowest recent trace for {service}: {trace['endpoint']} total {total:,} ms, status {status}",

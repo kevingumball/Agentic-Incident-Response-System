@@ -43,6 +43,11 @@ Root cause taxonomy:
 Available tools:
 {{tools}}"""
 
+PLANNER_CONCLUDE_OPTION = """
+
+When the evidence already establishes the root cause, choose tool "conclude" instead of another
+check; the current top hypothesis will be reported as the diagnosis."""
+
 HYPOTHESIS_SYSTEM = f"""\
 You maintain the evidence log and hypothesis set of an incident investigation.
 
@@ -62,6 +67,8 @@ Step 1 - extract 0-3 NEW evidence items from the LATEST TOOL OUTPUT ONLY.
 - Skip observations that say nothing about any cause.
 
 Step 2 - re-rank ALL plausible root causes using the whole evidence log.
+- For each hypothesis, name the service where that fault is located (e.g. the service whose pool is
+  full, the dependency that is down, the service whose config is wrong).
 - Confidence >= 0.8 only when the cause's characteristic signature was observed directly on the
   faulty component AND the closest alternatives are contradicted by evidence.
 - Causes that fit the evidence equally well must get similar confidence.

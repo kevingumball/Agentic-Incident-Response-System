@@ -23,6 +23,11 @@ class PlannerDecision(BaseModel):
     query: str = Field(default="", description="Only for search_logs: keywords, or empty for all logs")
 
 
+class PlannerDecisionOrConclude(PlannerDecision):
+    """Planner for the no-verifier ablation: it may also decide the investigation is finished."""
+    tool: Literal["get_service_metrics", "search_logs", "get_trace", "get_service_config", "conclude"]
+
+
 class EvidenceItem(BaseModel):
     observation: str = Field(description="One factual sentence with concrete numbers from the tool output")
     supports: list[RootCauseLabel] = Field(description="Root causes this observation makes MORE likely")
@@ -32,6 +37,8 @@ class EvidenceItem(BaseModel):
 class RankedHypothesis(BaseModel):
     label: RootCauseLabel
     confidence: float = Field(ge=0.0, le=1.0)
+    service: str = Field(default="", description="Service where this fault is located (e.g. inventory, orders-db); "
+                                                "empty if unclear")
 
 
 class HypothesisUpdate(BaseModel):
@@ -45,7 +52,8 @@ class HypothesisUpdate(BaseModel):
 
 class Objection(BaseModel):
     alternative: RootCauseLabel = Field(description="Competing label that is still consistent with all evidence")
-    check_tool: ReadTool = Field(description="Tool whose output would confirm or rule out the alternative")
+    # A plain string: an invented tool name should drop this objection, not crash the run (DEVLOG 10.4).
+    check_tool: str = Field(description="One of get_service_metrics / search_logs / get_trace / get_service_config")
     check_service: str = Field(description="Service to run that tool on")
     why: str = Field(description="What result would rule the alternative in or out")
 

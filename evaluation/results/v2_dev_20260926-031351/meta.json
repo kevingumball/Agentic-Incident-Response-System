@@ -1,0 +1,16 @@
+{
+  "suite": "v2",
+  "split": "dev",
+  "runs_per_case": 2,
+  "architectures": [
+    "react",
+    "plan_hyp",
+    "plan_hyp_rules",
+    "verifier"
+  ],
+  "model": "gpt-4.1-mini",
+  "max_steps": 10,
+  "confidence_threshold": 0.8,
+  "competitor_threshold": 0.5,
+  "started": "20260926-031351"
+}
